@@ -1,3 +1,6 @@
+# big files exception
+data/retail_train.csv
+src/__pycache__/
 # Prerequisites
 *.d
 
