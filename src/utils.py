@@ -16,6 +16,7 @@ def prefilter_items(data, item_features, take_n_popular=5000):
     print('# users: {}'.format(n_users))
     print('# items: {}'.format(n_items))
     print('Sparsity: {:4.3f}%'.format(sparsity))
+    start_columns = set(data.columns.tolist())
     data_train = data.copy()
 
     # do not use top popular items (they'd be bought anyway)
@@ -84,9 +85,31 @@ def prefilter_items(data, item_features, take_n_popular=5000):
     print('# users: {}'.format(n_users))
     print('# items: {}'.format(n_items))
     print('Sparsity: {:4.3f}%'.format(sparsity))
+    end_columns = set(data.columns.tolist())
+    print('new_columns:', 
+          end_columns-start_columns)
 
     return data
 
+
+
+def process_user_item_features(data, user_features, item_features):
+    item_features = merge_price_rel_by_department(item_features, data)
+    item_features = item_features.merge(data.groupby(by='item_id').agg('quantity').sum().rename('item_quantity_per_basket')/data.basket_id.nunique(), how='left',on='item_id')
+    item_features = item_features.merge(data.groupby(by='item_id').agg('quantity').sum().rename('total_quantity_value'), how='left',on='item_id')
+    item_features = item_features.merge(data.groupby(by='item_id').agg('sales_value').sum().rename('total_item_sales_value'), how='left',on='item_id')
+    item_features = item_features.merge(data.groupby(by='item_id').agg('user_id').count().rename('item_freq'), how='left',on='item_id')
+    item_features = item_features.merge(data.groupby(by='item_id').agg('user_id').count().rename('item_freq_per_basket')/data.basket_id.nunique(), how='left',on='item_id')
+    item_features = merge_quantity_selling_per_week(item_features, data)
+
+    user_features = merge_purchase_freq_by_month(user_features, data)
+    user_features = merge_pivot_by_departments(user_features, item_features, data)
+    user_features = user_features.merge(data.groupby(by='user_id').agg('sales_value').sum().rename('total_user_sales_value'), how='left', on='user_id')
+    user_features = user_features.merge(data.groupby(by='user_id').agg('quantity').sum().rename('user_quantity_per_week')/data.week_no.nunique(), how='left', on='user_id')
+    user_features = user_features.merge(data.groupby(by='user_id').agg('quantity').sum().rename('user_quantity_per_baskter')/data.basket_id.nunique(), how='left',on='user_id')
+    user_features = user_features.merge(data.groupby(by='user_id').agg('user_id').count().rename('user_freq_per_basket')/data.basket_id.nunique(), how='left',on='user_id')
+
+    return user_features, item_features
 
 # User new feature:
 #   "purchase frequency by one month"
@@ -125,16 +148,17 @@ def merge_pivot_by_departments(user_features, item_features, data):
 #     "price",
 #     "mean price by department"
 
-def merge_ratio_mean_price_by_department(item_features, data):
+def _merge_ratio_mean_price_by_department(item_features, data):
     data = data[data.item_id.isin(item_features.item_id.unique().tolist())]
-    
-    s = item_features[['item_id', 'department']].merge(data[['item_id', 'sales_value', 'quantity']], on='item_id', how='right')
-    s['price'] = s.sales_value / np.maximum(s.quantity, 1)
+    # print(data.columns)
+    data['price'] = data['sales_value'] / (np.maximum(data['quantity'], 1))
+    s = item_features[['item_id', 'department']].merge(data[['item_id', 'price']], on='item_id', how='right')
     s_mean = s.groupby('department').price.mean().reset_index()
     s_mean.columns = ['department', 'mean_price_by_department']
     
+    item_prices = s.groupby('item_id').price.max().reset_index().rename({'price': 'price_x'})
+    item_features = item_features.merge(item_prices, on='item_id', how='left',)
     item_features = item_features.merge(s_mean, on='department', how='left')
-    item_features = item_features.join(s['price'])
 
     return item_features
 
@@ -158,7 +182,7 @@ def merge_quantity_selling_per_week(item_features, data):
 #   "ratio of price to average price of the department"
 # + "ratio of mean prices by department"
 def merge_price_rel_by_department(item_features, data):
-    item_features = merge_ratio_mean_price_by_department(item_features, data)
+    item_features = _merge_ratio_mean_price_by_department(item_features, data)
     item_features['price_rel_mean_by_department'] = item_features.price / item_features.mean_price_by_department        
     
     return item_features
