@@ -1,6 +1,15 @@
 # big files exception
 data/retail_train.csv
 src/__pycache__/
+# venv exception
+.recs_venv/
+
+# catboost exception
+./catboost-info
+
+./notebooks/.ipynb_checkpoints
+
+./.vscode
 # Prerequisites
 *.d
 
