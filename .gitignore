@@ -1,6 +1,9 @@
 # big files exception
 data/retail_train.csv
 src/__pycache__/
+src/unittests/
+src/catboost_info
+
 # venv exception
 .recs_venv/
 
