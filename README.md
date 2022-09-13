@@ -1,7 +1,26 @@
-# recsys-tutorial
+### Result test metrics using catboostClassifier
+`candidates` column represents als recommendations quality
+╒═══════════════╤══════════════╤════════════╕
+│ metric        │   candidates │   cb_model │
+╞═══════════════╪══════════════╪════════════╡
+│ Precision@1   │      0.00672 │    0.02352 │
+├───────────────┼──────────────┼────────────┤
+│ Precision@10  │      0.01667 │    0.02614 │
+├───────────────┼──────────────┼────────────┤
+│ Precision@100 │      0.01725 │    0.026   │
+├───────────────┼──────────────┼────────────┤
+│ Precision@200 │      0.01725 │    0.026   │
+├───────────────┼──────────────┼────────────┤
+│ Recall@1      │      0.00017 │    0.00053 │
+├───────────────┼──────────────┼────────────┤
+│ Recall@10     │      0.00531 │    0.00584 │
+├───────────────┼──────────────┼────────────┤
+│ Recall@100    │      0.0164  │    0.01306 │
+├───────────────┼──────────────┼────────────┤
+│ Recall@200    │      0.0164  │    0.01306 │
+╘═══════════════╧══════════════╧════════════╛
 
-ML meets [Economics](https://blog.mldb.ai/blog/posts/2016/01/ml-meets-economics/) 
-
+## Useful materials
 ### Tutorials:
 - **implicit**: full data & model pipeline, [article](https://www.ethanrosenthal.com/2016/10/19/implicit-mf-part-1/) 
 - **LightFM**: [article](https://www.ethanrosenthal.com/2016/11/07/implicit-mf-part-2/) 

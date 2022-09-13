@@ -16,10 +16,8 @@ def hit_rate_at_k(recommended_list, bought_list, k=5):
     return hit_rate(recommended_list[:k], bought_list)
 
 def precision(recommended_list, bought_list):
-    bought_list = np.array(bought_list)
-    recommended_list = np.array(recommended_list)
-    flags = np.isin(bought_list, recommended_list)
-    return flags.sum() / len(recommended_list)
+    return len(set(bought_list).intersection(set(recommended_list[:]))) / max(
+        len(set(recommended_list)), 1)
 
 def precision_at_k(recommended_list, bought_list, k=5):
     return precision(recommended_list[:k], bought_list)
@@ -42,8 +40,8 @@ def recall_at_k(recommended_list, bought_list, k=5):
 
 def money_recall_at_k(recommended_list, bought_list, prices_recommended, prices_bought, k=5):
     bought_list = np.array(bought_list)
-    recommended_list = np.array(recommended_list)[:k]
-    prices_recommended = np.array(prices_recommended)[:k]
+    recommended_list = list(recommended_list[:k])
+    prices_recommended = np.array(prices_recommended[:k])
     prices_bought = np.array(prices_bought)
     flags = np.isin(recommended_list, bought_list)
     return np.dot(flags, prices_recommended).sum() / prices_bought.sum()
@@ -65,24 +63,21 @@ def ap_k(recommended_list, bought_list, k=5):
     return sum_ / amount_relevant
 
 
-def recommender_recall(predicted: List[list], actual: List[list]) -> int:
-    """
-    Computes the recall of each user's list of recommendations, and average recall over all users.
-    ----------
-    actual : a list of lists
-        Actual items to be predicted
-        example: [['A', 'B', 'X'], ['A', 'B', 'Y']]
-    predicted : a list of lists
-        Ordered predictions
-        example: [['X', 'Y', 'Z'], ['X', 'Y', 'Z']]
-    Returns:
-    -------
-        recall: int
-    """
-    def calc_recall(predicted, actual):
-        reca = [value for value in predicted if value in actual]
-        reca = np.round(float(len(reca)) / float(len(actual)), 4)
-        return reca
+from sklearn.metrics import roc_auc_score, roc_curve
+import matplotlib.pyplot as plt
+def plot_roc_auc_score(y_test, y_pred):
+    auc = roc_auc_score(y_test, y_pred)
 
-    recall = np.mean(list(map(calc_recall, predicted, actual)))
-    return recall
+    false_positive_rate, true_positive_rate, thresolds = roc_curve(y_test, y_pred)
+
+    plt.figure(figsize=(10, 8), dpi=100)
+    plt.axis('scaled')
+    plt.xlim([0, 1])
+    plt.ylim([0, 1])
+    plt.title("AUC & ROC Curve")
+    plt.plot(false_positive_rate, true_positive_rate, 'g')
+    plt.fill_between(false_positive_rate, true_positive_rate, facecolor='lightgreen', alpha=0.7)
+    plt.text(0.95, 0.05, 'AUC = %0.4f' % auc, ha='right', fontsize=12, weight='bold', color='blue')
+    plt.xlabel("False Positive Rate")
+    plt.ylabel("True Positive Rate")
+    plt.show()

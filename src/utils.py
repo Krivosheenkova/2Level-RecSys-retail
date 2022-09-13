@@ -2,7 +2,7 @@
 from typing import List
 import numpy as np
 import pandas as pd
-
+from src.metrics import precision_at_k, recall_at_k
 import seaborn as sns
 import matplotlib.pyplot as plt
 
@@ -92,6 +92,26 @@ def prefilter_items(data, item_features, take_n_popular=5000):
     return data
 
 
+def convert_categorical_to_category(data):
+        object_cols = data.select_dtypes(include=['object']).columns.tolist()
+        # department_cols = [col for col in data.columns if col in item_features.department.unique().tolist()]
+        department_cols = [col for col in data.columns if col.isupper()]
+        categorical_cols = object_cols + department_cols + ['manufacturer']
+        data.dropna(inplace=True) 
+        def convert_categorical_to_int(series):
+            if series.dtypes == 'float64':
+                return series.astype('int64')
+            else:
+                return series          
+        for col in categorical_cols:
+            data[col] = convert_categorical_to_int(data[col])
+
+        cat_numeric_cols  = data[categorical_cols].select_dtypes(include='int64').columns.tolist()
+        cat_object_cols = [col for col in categorical_cols if col not in cat_numeric_cols] # select only non-numeric categorical columns
+        data[cat_object_cols] = data[cat_object_cols].astype('category')
+
+        return data
+
 
 def process_user_item_features(data, user_features, item_features):
     item_features = merge_price_rel_by_department(item_features, data)
@@ -151,7 +171,8 @@ def merge_pivot_by_departments(user_features, item_features, data):
 def _merge_ratio_mean_price_by_department(item_features, data):
     data = data[data.item_id.isin(item_features.item_id.unique().tolist())]
     # print(data.columns)
-    data['price'] = data['sales_value'] / (np.maximum(data['quantity'], 1))
+    
+    data = data.assign(price=lambda df: df.sales_value / df.quantity.max())
     s = item_features[['item_id', 'department']].merge(data[['item_id', 'price']], on='item_id', how='right')
     s_mean = s.groupby('department').price.mean().reset_index()
     s_mean.columns = ['department', 'mean_price_by_department']
@@ -175,7 +196,7 @@ def merge_quantity_selling_per_week(item_features, data):
     d_weeks.loc[d_weeks.n_weeks == 0] = 1
     d_sales_weeks = d_weeks.merge(d_sales, on='item_id')
     d_sales_weeks['sales_by_week'] = d_sales_weeks.sales_value / d_sales_weeks.n_weeks
-   
+    d_sales_weeks = d_sales_weeks.assign(sales_by_week=lambda df: df.sales_value / df.n_weeks)
     item_features = item_features.merge(d_sales_weeks[['item_id', 'sales_by_week']], on='item_id', how='left')
     return item_features.fillna(0)
  
@@ -183,6 +204,28 @@ def merge_quantity_selling_per_week(item_features, data):
 # + "ratio of mean prices by department"
 def merge_price_rel_by_department(item_features, data):
     item_features = _merge_ratio_mean_price_by_department(item_features, data)
-    item_features['price_rel_mean_by_department'] = item_features.price / item_features.mean_price_by_department        
-    
+    item_features = item_features.assign(merge_price_rel_by_department=lambda df: df.price / df.mean_price_by_department)
     return item_features
+
+import src.config as cfg
+def calc_recall(df_data, top_k):
+    """
+    Returns (col_name, mean recall value) from the table with structure:
+    user_id | actual_purchases | model_1 | model_2 | ...
+    str|int             list()    list()    list()
+
+    """
+    columns = df_data.columns.tolist()[2:]
+    for col_name in columns:
+        yield col_name, df_data.apply(lambda row: recall_at_k(row[col_name], row[cfg.ACTUAL_COL], k=top_k), axis=1).mean()
+
+
+def calc_precision(df_data, top_k):
+    """
+    Returns (col_name, mean recall value) from the table with structure:
+    user_id | actual_purchases | model_1 | model_2 | ...
+    str|int             list()    list()    list()
+    """
+    columns = df_data.columns.tolist()[2:]
+    for col_name in columns:
+        yield col_name, df_data.apply(lambda row: precision_at_k(row[col_name], row[cfg.ACTUAL_COL], k=top_k), axis=1).mean()
